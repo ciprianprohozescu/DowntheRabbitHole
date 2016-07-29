@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.ParticleEffect;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
@@ -18,6 +19,8 @@ import com.badlogic.gdx.math.Vector3;
 import java.util.Random;
 
 public class MyGdxGame extends ApplicationAdapter implements GestureListener {
+
+    //region variables
 	SpriteBatch menuBatch, worldBatch, hudBatch;
 	public int game_state; //1 main menu; 2 new level; 3 in game
 	Texture play_button_pic, map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, rabbit_pic, carrot_pic, bomb_pic, armedBomb_pic;
@@ -27,14 +30,18 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera;
 	float mapRight, mapLeft, mapTop, mapBottom, cameraHalfWidth, cameraHalfHeight, cameraLeft, cameraRight, cameraBottom, cameraTop, screenWidth, screenHeight;
-	int l, c, arrowSelected, upUsed, downUsed, leftUsed, rightUsed, rabbitL, rabbitC, rabbitDirection, nrCarrotsCollected, level;
+	float levelTextSize;
+	int l, c, arrowSelected, upUsed, downUsed, leftUsed, rightUsed, rabbitL, rabbitC, rabbitDirection, nrCarrotsCollected, level, nrStarsUsed;
 	Vector3 pozScreen, pozWorld, arrowPos, rabbitPos;
 	int[][] M; //1, 2, 3, 4 directions; 5 carrot; 6 invisible bomb; 7 visible bomb; 8 armed bomb
 	boolean rabbitMove;
-	long rabbitStartTime, delayTime;
+	long rabbitStartTime, delayTime, levelTextStartTime;
 	FreeTypeFontGenerator fontGenerator;
 	FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
-	BitmapFont font, font1;
+	BitmapFont font, levelFont;
+	ParticleEffect[] stars;
+    ParticleEffect fireworks;
+    //endregion
 
 	@Override
 	public void create () {
@@ -45,6 +52,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
+        //region textures and sprites
 		menuBatch = new SpriteBatch();
 		worldBatch = new SpriteBatch();
 		hudBatch = new SpriteBatch();
@@ -94,23 +102,39 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			bomb[i] = new Sprite(bomb_pic);
 		for (i = 1; i <= 400; i++)
 			armedBomb[i] = new Sprite(armedBomb_pic);
+        //endregion
 
+        //region fonts
 		fontGenerator = new FreeTypeFontGenerator(Gdx.files.internal("Gretoon.ttf"));
 		fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 		fontParameter.size = 100;
 		fontParameter.color = Color.BLACK;
 		fontParameter.characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.!'()>?: ";
 		font = fontGenerator.generateFont(fontParameter);
-		font1 = new BitmapFont();
-		font1.getData().scale(5);
+		levelFont = fontGenerator.generateFont(fontParameter);
+        //endregion
 
+        screenWidth = Gdx.graphics.getWidth();
+        screenHeight = Gdx.graphics.getHeight();
+
+        //region pe
+        stars = new ParticleEffect[410];
+        for (i = 1; i <= 400; i++) {
+            stars[i] = new ParticleEffect();
+            stars[i].load(Gdx.files.internal("stars.party"),Gdx.files.internal(""));
+            stars[i].start();
+        }
+        fireworks = new ParticleEffect();
+        fireworks.load(Gdx.files.internal("fireworks.party"), Gdx.files.internal(""));
+        fireworks.setPosition(screenWidth / 2, screenHeight - 100);
+        fireworks.start();
+        //endregion
+
+        //region geometry
 		pozScreen = new Vector3();
 		pozWorld = new Vector3();
 		arrowPos = new Vector3();
 		rabbitPos = new Vector3();
-
-		screenWidth = Gdx.graphics.getWidth();
-		screenHeight = Gdx.graphics.getHeight();
 
 		play_button.setPosition(screenWidth / 2 - 200, screenHeight / 2 + 200);
 		map.setPosition(-map.getWidth() / 2, -map.getHeight() / 2);
@@ -144,20 +168,28 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		mapRight = map.getWidth() / 2;
 		mapBottom = -map.getHeight() / 2;
 		mapTop = map.getHeight() / 2;
+        //endregion
 	}
 
 	@Override
 	public void render () {
 		int i, j, nrCarrotsUsed = 0, nrBombsUsed = 0, nrArmedBombsUsed = 0;
 
-		Gdx.gl.glClearColor(1, 1, 1, 1);
+		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        for (i = 1; i <= 400; i++)
+            stars[i].update(Gdx.graphics.getDeltaTime());
+        fireworks.update(Gdx.graphics.getDeltaTime());
+
 		if (game_state == 1) {
 			menuBatch.begin();
 			play_button.draw(menuBatch);
 			menuBatch.end();
 		}
 		else if (game_state == 3) {
+
+            //region rabbit update
 			if (rabbitMove) {
 				switch (rabbitDirection) {
 					case 1:
@@ -219,6 +251,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 						case 5:
 							nrCarrotsCollected++;
 							M[rabbitC][rabbitL] = 0;
+                            stars[++nrStarsUsed].setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
+                            stars[nrStarsUsed].reset();
 							break;
 						case 7:
 							game_over();
@@ -279,7 +313,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					}
 				}
 			}
+            //endregion
 
+            //region world
 			worldBatch.setProjectionMatrix(camera.combined);
 			worldBatch.begin();
 
@@ -322,8 +358,14 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			rabbitHole.draw(worldBatch);
 			rabbit.draw(worldBatch);
 
-			worldBatch.end();
+            for (i = 1; i <= nrStarsUsed; i++) {
+                stars[i].draw(worldBatch);
+            }
 
+			worldBatch.end();
+            //endregion
+
+            //region hud
 			hudBatch.begin();
 
 			noArrow.draw(hudBatch);
@@ -344,13 +386,36 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			else
 				arrowRight[1].draw(hudBatch);
 
+			if (levelTextSize > 0) {
+				levelFont.getData().setScale(levelTextSize);
+				levelFont.draw(hudBatch, "Level " + level, screenWidth / 2 - 200, screenHeight - 50);
+				if (levelTextSize < 1 && levelTextStartTime == 0) {
+					levelTextSize += 0.05;
+				}
+				else {
+					if (levelTextStartTime > 0) {
+						if (System.currentTimeMillis() - levelTextStartTime > 3000) {
+							if (levelTextSize > 0)
+								levelTextSize -= 0.05;
+						}
+					}
+					else {
+                        levelTextStartTime = System.currentTimeMillis();
+                        fireworks.reset();
+                    }
+				}
+			}
+
 			font.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 120, screenHeight);
+            fireworks.draw(hudBatch);
 
 			hudBatch.end();
+            //endregion
 		}
 	}
 
 	public void dispose() {
+        int i;
 		menuBatch.dispose();
 		hudBatch.dispose();
 		worldBatch.dispose();
@@ -371,6 +436,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		armedBomb_pic.dispose();
 		fontGenerator.dispose();
 		font.dispose();
+        for (i = 1; i <= 400; i++)
+            stars[i].dispose();
 	}
 
 	@Override
@@ -471,9 +538,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	}
 
 	@Override
-	public void pinchStop() {
-
-	}
+	public void pinchStop() {}
 
 	public void createLevel() {
 		int i, j, x, y, nrCarrotsCreated = randInt(20, 50), nrBombsCreated = randInt(10, 20);
@@ -509,6 +574,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			delayTime -= 50;
 		camera.translate(-camera.position.x, -camera.position.y);
 		camera.update();
+		levelTextSize = 0.1f;
+		levelTextStartTime = 0;
+        nrStarsUsed = 0;
 	}
 
 	public int isArrowSelected(float x, float y) {
@@ -541,5 +609,6 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		game_state = 1;
 		nrCarrotsCollected = 0;
 		delayTime = 550;
+		level = 0;
 	}
 }
