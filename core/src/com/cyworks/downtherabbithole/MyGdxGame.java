@@ -2,6 +2,7 @@ package com.cyworks.downtherabbithole;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -38,9 +39,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	long rabbitStartTime, delayTime, levelTextStartTime;
 	FreeTypeFontGenerator fontGenerator;
 	FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
-	BitmapFont font, levelFont;
+	BitmapFont scoreFont, levelFont, highscoreFont;
 	ParticleEffect[] stars;
     ParticleEffect fireworks;
+	Preferences userData;
+    String highscore;
     //endregion
 
 	@Override
@@ -110,9 +113,13 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		fontParameter.size = 100;
 		fontParameter.color = Color.BLACK;
 		fontParameter.characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.!'()>?: ";
-		font = fontGenerator.generateFont(fontParameter);
+		scoreFont = fontGenerator.generateFont(fontParameter);
 		levelFont = fontGenerator.generateFont(fontParameter);
+        highscoreFont = fontGenerator.generateFont(fontParameter);
         //endregion
+
+        userData = Gdx.app.getPreferences("User Data");
+        highscore = "Highscore: " + userData.getInteger("highscore", 0);
 
         screenWidth = Gdx.graphics.getWidth();
         screenHeight = Gdx.graphics.getHeight();
@@ -175,7 +182,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public void render () {
 		int i, j, nrCarrotsUsed = 0, nrBombsUsed = 0, nrArmedBombsUsed = 0;
 
-		Gdx.gl.glClearColor(0, 0, 0, 1);
+		Gdx.gl.glClearColor(1, 1, 1, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         for (i = 1; i <= 400; i++)
@@ -185,6 +192,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		if (game_state == 1) {
 			menuBatch.begin();
 			play_button.draw(menuBatch);
+            highscoreFont.draw(menuBatch, highscore, screenWidth / 2 - 400, 300);
 			menuBatch.end();
 		}
 		else if (game_state == 3) {
@@ -406,7 +414,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				}
 			}
 
-			font.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 120, screenHeight);
+			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 120, screenHeight);
             fireworks.draw(hudBatch);
 
 			hudBatch.end();
@@ -435,7 +443,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		bomb_pic.dispose();
 		armedBomb_pic.dispose();
 		fontGenerator.dispose();
-		font.dispose();
+		scoreFont.dispose();
         for (i = 1; i <= 400; i++)
             stars[i].dispose();
 	}
@@ -607,6 +615,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 	public void game_over() {
 		game_state = 1;
+        if (nrCarrotsCollected > userData.getInteger("highscore", 0)) {
+            userData.putInteger("highscore", nrCarrotsCollected);
+            highscore = "Highscore: " + nrCarrotsCollected;
+            userData.flush();
+        }
 		nrCarrotsCollected = 0;
 		delayTime = 550;
 		level = 0;
