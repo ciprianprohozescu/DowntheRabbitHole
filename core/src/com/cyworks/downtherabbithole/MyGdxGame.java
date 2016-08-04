@@ -3,6 +3,8 @@ package com.cyworks.downtherabbithole;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -24,9 +26,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
     //region variables
 	SpriteBatch menuBatch, worldBatch, hudBatch;
 	public int game_state; //1 main menu; 2 new level; 3 in game
-	Texture play_button_pic, map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, rabbit_pic, carrot_pic, bomb_pic, armedBomb_pic;
+	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, rabbit_pic, carrot_pic, bomb_pic, armedBomb_pic;
 	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic;
-	Sprite play_button, map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbit, rabbitHole;
+	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbit, rabbitHole;
 	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb;
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera;
@@ -41,9 +43,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
 	BitmapFont scoreFont, levelFont, highscoreFont;
 	ParticleEffect[] stars;
-    ParticleEffect fireworks;
+    ParticleEffect fireworks, leaves;
 	Preferences userData;
     String highscore;
+	Music menuMusic;
+	Sound buttonSound;
     //endregion
 
 	@Override
@@ -59,7 +63,6 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		menuBatch = new SpriteBatch();
 		worldBatch = new SpriteBatch();
 		hudBatch = new SpriteBatch();
-		play_button_pic = new Texture("play_button.png");
 		map_pic = new Texture("map.png");
 		arrowUpPic = new Texture("ArrowUp.png");
 		arrowDownPic = new Texture("ArrowDown.png");
@@ -75,7 +78,6 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		bomb_pic = new Texture("bomb.png");
 		armedBomb_pic = new Texture("armedBomb.png");
 		rabbitHole_pic = new Texture("rabbitHole.png");
-		play_button = new Sprite(play_button_pic);
 		arrowLeftSelected = new Sprite(arrowLeftSelectedPic);
 		arrowRightSelected = new Sprite(arrowRightSelectedPic);
 		arrowDownSelected = new Sprite(arrowDownSelectedPic);
@@ -118,6 +120,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         highscoreFont = fontGenerator.generateFont(fontParameter);
         //endregion
 
+		buttonSound = Gdx.audio.newSound(Gdx.files.internal("button.wav"));
+		menuMusic = Gdx.audio.newMusic(Gdx.files.internal("menuMusic.mp3"));
+		menuMusic.setVolume(0.7f);
+		menuMusic.play();
+
         userData = Gdx.app.getPreferences("User Data");
         highscore = "Highscore: " + userData.getInteger("highscore", 0);
 
@@ -135,6 +142,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         fireworks.load(Gdx.files.internal("fireworks.party"), Gdx.files.internal(""));
         fireworks.setPosition(screenWidth / 2, screenHeight - 100);
         fireworks.start();
+		leaves = new ParticleEffect();
+		leaves.load(Gdx.files.internal("leaves.party"), Gdx.files.internal(""));
+		leaves.setPosition(500, screenHeight - 500);
+		leaves.start();
         //endregion
 
         //region geometry
@@ -143,7 +154,6 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		arrowPos = new Vector3();
 		rabbitPos = new Vector3();
 
-		play_button.setPosition(screenWidth / 2 - 200, screenHeight / 2 + 200);
 		map.setPosition(-map.getWidth() / 2, -map.getHeight() / 2);
 
 		l = (screenWidth - 1000) / 4;
@@ -176,6 +186,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		mapBottom = -map.getHeight() / 2;
 		mapTop = map.getHeight() / 2;
         //endregion
+
 	}
 
 	@Override
@@ -188,11 +199,15 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         for (i = 1; i <= 400; i++)
             stars[i].update(Gdx.graphics.getDeltaTime());
         fireworks.update(Gdx.graphics.getDeltaTime());
+		leaves.update(Gdx.graphics.getDeltaTime());
 
 		if (game_state == 1) {
 			menuBatch.begin();
-			play_button.draw(menuBatch);
+			highscoreFont.draw(menuBatch, "Play", screenWidth / 2 - 100, screenHeight / 2 + 400);
             highscoreFont.draw(menuBatch, highscore, screenWidth / 2 - 400, 300);
+			if (leaves.isComplete())
+				leaves.reset();
+			leaves.draw(menuBatch);
 			menuBatch.end();
 		}
 		else if (game_state == 3) {
@@ -427,7 +442,6 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		menuBatch.dispose();
 		hudBatch.dispose();
 		worldBatch.dispose();
-		play_button_pic.dispose();
 		map_pic.dispose();
 		arrowUpPic.dispose();
 		arrowDownPic.dispose();
@@ -446,6 +460,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		scoreFont.dispose();
         for (i = 1; i <= 400; i++)
             stars[i].dispose();
+		fireworks.dispose();
+		leaves.dispose();
+		menuMusic.dispose();
+		buttonSound.dispose();
 	}
 
 	@Override
@@ -459,8 +477,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		if (game_state == 1) {
 			y = screenHeight - y;
-			if (x >= play_button.getX() && x <= play_button.getX() + 400 && y >= play_button.getY() && y <= play_button.getY() + 200)
+			if (x >= screenWidth / 2 - 200 && x <= screenWidth / 2 - 200 + 400 && y >= screenHeight / 2 + 200 && y <= screenHeight / 2 + 200 + 200) {
 				game_state = 2;
+				buttonSound.play();
+				menuMusic.stop();
+			}
 		}
 		if (game_state == 2) {
 			createLevel();
@@ -615,6 +636,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 	public void game_over() {
 		game_state = 1;
+		menuMusic.play();
+		leaves.reset();
         if (nrCarrotsCollected > userData.getInteger("highscore", 0)) {
             userData.putInteger("highscore", nrCarrotsCollected);
             highscore = "Highscore: " + nrCarrotsCollected;
