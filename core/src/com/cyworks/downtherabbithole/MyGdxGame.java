@@ -78,6 +78,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		bomb_pic = new Texture("bomb.png");
 		armedBomb_pic = new Texture("armedBomb.png");
 		rabbitHole_pic = new Texture("rabbitHole.png");
+		cameraLockedPic = new Texture("cameraLocked.png");
+		cameraUnlockedPic = new Texture("cameraUnlocked.png");
 		arrowLeftSelected = new Sprite(arrowLeftSelectedPic);
 		arrowRightSelected = new Sprite(arrowRightSelectedPic);
 		arrowDownSelected = new Sprite(arrowDownSelectedPic);
@@ -107,6 +109,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			bomb[i] = new Sprite(bomb_pic);
 		for (i = 1; i <= 400; i++)
 			armedBomb[i] = new Sprite(armedBomb_pic);
+		cameraLocked = new Sprite(cameraLockedPic);
+		cameraUnlocked = new Sprite(cameraUnlockedPic);
         //endregion
 
         //region fonts
@@ -177,6 +181,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		arrowRight[1].setPosition(arrowPos.x, arrowPos.y);
 		arrowRightSelected.setPosition(arrowPos.x, arrowPos.y);
 
+		cameraLocked.setPosition(screenWidth - 200, screenHeight / 2 - 100);
+		cameraUnlocked.setPosition(screenWidth - 200, screenHeight / 2 - 100);
+
 		game_state = 1;
 		M = new int[25][25];
 		for (i = 1; i <= 20; i++)
@@ -222,15 +229,23 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				switch (rabbitDirection) {
 					case 1:
 						rabbitPos.y += 10;
+						if (isCameraLocked)
+							safeTranslate(0, 10);
 						break;
 					case 2:
 						rabbitPos.x += 10;
+						if (isCameraLocked)
+							safeTranslate(10, 0);
 						break;
 					case 3:
 						rabbitPos.y -= 10;
+						if (isCameraLocked)
+							safeTranslate(0, -10);
 						break;
 					case 4:
 						rabbitPos.x -= 10;
+						if (isCameraLocked)
+							safeTranslate(-10, 0);
 						break;
 					default: break;
 				}
@@ -455,6 +470,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 120, screenHeight);
             fireworks.draw(hudBatch);
 
+			if (isCameraLocked)
+				cameraLocked.draw(hudBatch);
+			else
+				cameraUnlocked.draw(hudBatch);
+
 			hudBatch.end();
             //endregion
 		}
@@ -488,6 +508,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		menuMusic.dispose();
 		buttonSound.dispose();
 		explosion.dispose();
+		cameraLockedPic.dispose();
+		cameraUnlockedPic.dispose();
 	}
 
 	@Override
@@ -529,6 +551,14 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					arrow = 0;
 				arrowSelected = arrow;
 			}
+			if (x >= screenWidth - 200 && y >= screenHeight / 2 - 100 && y <= screenHeight / 2 + 100) {
+				if (!isCameraLocked) {
+					isCameraLocked = true;
+					safeTranslate(rabbitPos.x - camera.position.x, rabbitPos.y - camera.position.y);
+				}
+				else
+					isCameraLocked = false;
+			}
 		}
 		return true;
 	}
@@ -545,34 +575,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 	@Override
 	public boolean pan(float x, float y, float deltaX, float deltaY) {
-		camera.translate(-deltaX, deltaY);
-
-		cameraHalfWidth = camera.viewportWidth * .5f * camera.zoom;
-		cameraHalfHeight = camera.viewportHeight * .5f * camera.zoom;
-
-		cameraLeft = camera.position.x - cameraHalfWidth;
-		cameraRight = camera.position.x + cameraHalfWidth;
-		cameraBottom = camera.position.y - cameraHalfHeight;
-		cameraTop = camera.position.y + cameraHalfHeight;
-
-		if (map.getWidth() < camera.viewportWidth) {
-			camera.position.x = mapRight / 2;
-		} else if (cameraLeft <= mapLeft) {
-			camera.position.x = mapLeft + cameraHalfWidth;
-		} else if (cameraRight >= mapRight) {
-			camera.position.x = mapRight - cameraHalfWidth;
+		if (!isCameraLocked) {
+			deltaX = -deltaX;
+			safeTranslate(deltaX, deltaY);
+			return true;
 		}
-
-		if (map.getHeight() < camera.viewportHeight) {
-			camera.position.y = mapTop / 2;
-		} else if (cameraBottom <= mapBottom) {
-			camera.position.y = mapBottom + cameraHalfHeight;
-		} else if (cameraTop >= mapTop) {
-			camera.position.y = mapTop - cameraHalfHeight;
-		}
-
-		camera.update();
-		return true;
+		return false;
 	}
 
 	@Override
@@ -680,5 +688,35 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			level = 0;
 			deathTime = 0;
 		}
+	}
+
+	public void safeTranslate(float deltaX, float deltaY) {
+		camera.translate(deltaX, deltaY);
+
+		cameraHalfWidth = camera.viewportWidth * .5f * camera.zoom;
+		cameraHalfHeight = camera.viewportHeight * .5f * camera.zoom;
+
+		cameraLeft = camera.position.x - cameraHalfWidth;
+		cameraRight = camera.position.x + cameraHalfWidth;
+		cameraBottom = camera.position.y - cameraHalfHeight;
+		cameraTop = camera.position.y + cameraHalfHeight;
+
+		if (map.getWidth() < camera.viewportWidth) {
+			camera.position.x = mapRight / 2;
+		} else if (cameraLeft <= mapLeft) {
+			camera.position.x = mapLeft + cameraHalfWidth;
+		} else if (cameraRight >= mapRight) {
+			camera.position.x = mapRight - cameraHalfWidth;
+		}
+
+		if (map.getHeight() < camera.viewportHeight) {
+			camera.position.y = mapTop / 2;
+		} else if (cameraBottom <= mapBottom) {
+			camera.position.y = mapBottom + cameraHalfHeight;
+		} else if (cameraTop >= mapTop) {
+			camera.position.y = mapTop - cameraHalfHeight;
+		}
+
+		camera.update();
 	}
 }
