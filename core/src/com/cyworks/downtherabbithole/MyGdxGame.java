@@ -229,23 +229,15 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				switch (rabbitDirection) {
 					case 1:
 						rabbitPos.y += 10;
-						if (isCameraLocked)
-							safeTranslate(0, 10);
 						break;
 					case 2:
 						rabbitPos.x += 10;
-						if (isCameraLocked)
-							safeTranslate(10, 0);
 						break;
 					case 3:
 						rabbitPos.y -= 10;
-						if (isCameraLocked)
-							safeTranslate(0, -10);
 						break;
 					case 4:
 						rabbitPos.x -= 10;
-						if (isCameraLocked)
-							safeTranslate(-10, 0);
 						break;
 					default: break;
 				}
@@ -268,6 +260,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					}
 				}
 				rabbit.setPosition(rabbitPos.x, rabbitPos.y);
+                if (isCameraLocked)
+                    safeTranslate(rabbitPos.x - camera.position.x, rabbitPos.y - camera.position.y);
 			}
 			else {
 				if (rabbitStartTime > 0) {
@@ -467,7 +461,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				}
 			}
 
-			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 120, screenHeight);
+			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 150, screenHeight);
             fireworks.draw(hudBatch);
 
 			if (isCameraLocked)
@@ -543,8 +537,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				l = 20 - (int) pozWorld.y / 200;
 				c = (int) pozWorld.x / 200;
 				c++;
-				if (M[c][l] >= 0 && M[c][l] <= 4)
-					M[c][l] = arrowSelected;
+				if (M[c][l] >= 0 && M[c][l] <= 4) {
+                    M[c][l] = arrowSelected;
+                    arrowSelected = 0;
+                }
 			}
 			else {
 				if (arrow == -1)
@@ -628,7 +624,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		for (i = 1; i <= nrBombsCreated; i++) {
 			x = randInt(2, 19);
 			y = randInt(2, 19);
-			if (M[x][y] == 0)
+			if (M[x][y] == 0 && (x > 13 || x < 7 || y > 13 || y < 7))
 				M[x][y] = 6;
 		}
 		if (delayTime >= 50)
@@ -687,6 +683,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			delayTime = 550;
 			level = 0;
 			deathTime = 0;
+            arrowSelected = 0;
 		}
 	}
 
