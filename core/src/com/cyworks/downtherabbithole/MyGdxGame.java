@@ -1,6 +1,7 @@
 package com.cyworks.downtherabbithole;
 
 import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.audio.Music;
@@ -33,21 +34,24 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera;
 	float mapRight, mapLeft, mapTop, mapBottom, cameraHalfWidth, cameraHalfHeight, cameraLeft, cameraRight, cameraBottom, cameraTop, screenWidth, screenHeight;
-	float levelTextSize;
+	float levelTextSize, gameMusicVolume;
 	int l, c, arrowSelected, upUsed, downUsed, leftUsed, rightUsed, rabbitL, rabbitC, rabbitDirection, nrCarrotsCollected, level, nrStarsUsed;
 	Vector3 pozScreen, pozWorld, arrowPos, rabbitPos;
 	int[][] M; //1, 2, 3, 4 directions; 5 carrot; 6 invisible bomb; 7 visible bomb; 8 armed bomb
 	boolean rabbitMove, drawExplosion, isCameraLocked;
-	long rabbitStartTime, delayTime, levelTextStartTime, deathTime;
+	long rabbitStartTime, rabbitSpeedDelay, levelTextStartTime, deathTime;
 	FreeTypeFontGenerator fontGenerator;
 	FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
-	BitmapFont scoreFont, levelFont, highscoreFont;
+	BitmapFont scoreFont, levelFont, highscoreFont, titleFont;
 	ParticleEffect[] stars;
     ParticleEffect fireworks, leaves, explosion;
 	Preferences userData;
     String highscore;
 	Music menuMusic;
-	Sound buttonSound;
+	Sound buttonSound, carrotCollectSound, bombAppearSound, bombArmSound;
+    Music[] gameMusic;
+    Sound[] bombExplosionSound;
+    int nrGameMusic, nrbombExplosionSound, nrMaxGameMusic, nrMaxBombExplosionSound;
     //endregion
 
 	@Override
@@ -122,12 +126,30 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		scoreFont = fontGenerator.generateFont(fontParameter);
 		levelFont = fontGenerator.generateFont(fontParameter);
         highscoreFont = fontGenerator.generateFont(fontParameter);
+        fontParameter.size = 110;
+        titleFont = fontGenerator.generateFont(fontParameter);
         //endregion
 
+        //region sounds
 		buttonSound = Gdx.audio.newSound(Gdx.files.internal("button.wav"));
 		menuMusic = Gdx.audio.newMusic(Gdx.files.internal("menuMusic.mp3"));
 		menuMusic.setVolume(0.7f);
 		menuMusic.play();
+
+        carrotCollectSound = Gdx.audio.newSound(Gdx.files.internal("carrotCollect.wav"));
+        bombAppearSound = Gdx.audio.newSound(Gdx.files.internal("bombAppear.wav"));
+        bombArmSound = Gdx.audio.newSound(Gdx.files.internal("bombArm.mp3"));
+
+        nrMaxGameMusic = 3;
+        gameMusic = new Music[nrMaxGameMusic + 1];
+        for (i = 1; i <= nrMaxGameMusic; i++)
+            gameMusic[i] = Gdx.audio.newMusic(Gdx.files.internal("gameMusic" + i + ".mp3"));
+
+        nrMaxBombExplosionSound = 2;
+        bombExplosionSound = new Sound[nrMaxBombExplosionSound + 1];
+        for (i = 1; i <= nrMaxBombExplosionSound; i++)
+            bombExplosionSound[i] = Gdx.audio.newSound(Gdx.files.internal("bombExplosion" + i + ".wav"));
+        //endregion
 
         userData = Gdx.app.getPreferences("User Data");
         highscore = "Highscore: " + userData.getInteger("highscore", 0);
@@ -190,7 +212,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			M[i][1] = M[i][20] = -1;
 		for (j = 1; j <= 20; j++)
 			M[1][j] = M[20][j] = -1;
-		delayTime = 550;
+		rabbitSpeedDelay = 450;
 
 		mapLeft = -map.getWidth() / 2;
 		mapRight = map.getWidth() / 2;
@@ -215,12 +237,16 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		if (game_state == 1) {
 			menuBatch.begin();
-			highscoreFont.draw(menuBatch, "Play", screenWidth / 2 - 100, screenHeight / 2 + 400);
-            highscoreFont.draw(menuBatch, highscore, screenWidth / 2 - 400, 300);
+            titleFont.draw(menuBatch, "Down the Rabbit Hole", screenWidth / 2 - 800, screenHeight - 150);
+			highscoreFont.draw(menuBatch, "Play", screenWidth / 2 - 120, screenHeight / 2 - 50);
+            highscoreFont.draw(menuBatch, highscore, screenWidth / 2 - 400, 200);
 			if (leaves.isComplete())
 				leaves.reset();
 			leaves.draw(menuBatch);
 			menuBatch.end();
+            for (i = 1; i <= nrMaxGameMusic; i++)
+                if (gameMusic[i].isPlaying())
+                    gameMusic[i].stop();
 		}
 		else if (game_state == 3) {
 
@@ -265,7 +291,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			}
 			else {
 				if (rabbitStartTime > 0) {
-					if (System.currentTimeMillis() - rabbitStartTime >= delayTime) {
+					if (System.currentTimeMillis() - rabbitStartTime >= rabbitSpeedDelay) {
 						rabbitMove = true;
 						rabbitStartTime = 0;
 					}
@@ -290,6 +316,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 							M[rabbitC][rabbitL] = 0;
                             stars[++nrStarsUsed].setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
                             stars[nrStarsUsed].reset();
+                            carrotCollectSound.play();
 							break;
 						case 8:
 							M[rabbitC][rabbitL] = 0;
@@ -312,16 +339,20 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					for (i = rabbitL - 4; i <= rabbitL + 4; i++) {
 						for (j = rabbitC - 4; j <= rabbitC + 4; j++) {
 							if (i >= 2 && j >= 2 && i <= 19 && j <= 19) {
-								if (M[j][i] == 6)
-									M[j][i] = 7;
+								if (M[j][i] == 6) {
+                                    M[j][i] = 7;
+                                    bombAppearSound.play();
+                                }
 							}
 						}
 					}
 					i = rabbitL - 1;
 					j = rabbitC;
 					if (i >= 2 && i <= 19) {
-						if (M[j][i] == 7)
-							M[j][i] = 8;
+						if (M[j][i] == 7) {
+                            M[j][i] = 8;
+                            bombArmSound.play();
+                        }
 						else if (M[j][i] == 8) {
 							M[j][i] = 0;
 							explosion.setPosition((j - 1) * 200 - 1900, (20 - i) * 200 - 1900);
@@ -330,8 +361,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					}
 					i = rabbitL + 1;
 					if (i >= 2 && i <= 19) {
-						if (M[j][i] == 7)
-							M[j][i] = 8;
+                        if (M[j][i] == 7) {
+                            M[j][i] = 8;
+                            bombArmSound.play();
+                        }
 						else if (M[j][i] == 8) {
 							M[j][i] = 0;
 							explosion.setPosition((j - 1) * 200 - 1900, (20 - i) * 200 - 1900);
@@ -341,8 +374,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					i = rabbitL;
 					j = rabbitC + 1;
 					if (j >= 2 && j <= 19) {
-						if (M[j][i] == 7)
-							M[j][i] = 8;
+                        if (M[j][i] == 7) {
+                            M[j][i] = 8;
+                            bombArmSound.play();
+                        }
 						else if (M[j][i] == 8) {
 							M[j][i] = 0;
 							explosion.setPosition((j - 1) * 200 - 1900, (20 - i) * 200 - 1900);
@@ -351,8 +386,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					}
 					j = rabbitC - 1;
 					if (j >= 2 && j <= 19) {
-						if (M[j][i] == 7)
-							M[j][i] = 8;
+                        if (M[j][i] == 7) {
+                            M[j][i] = 8;
+                            bombArmSound.play();
+                        }
 						else if (M[j][i] == 8) {
 							M[j][i] = 0;
 							explosion.setPosition((j - 1) * 200 - 1900, (20 - i) * 200 - 1900);
@@ -415,6 +452,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				explosion.draw(worldBatch);
 				game_over();
 				Gdx.app.log(TAG, "" + rabbitPos.x + " " + rabbitPos.y);
+                if (gameMusicVolume > 0)
+                    gameMusicVolume -= 0.005;
+                gameMusic[nrGameMusic].setVolume(gameMusicVolume);
 			}
 
 			worldBatch.end();
@@ -471,6 +511,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 			hudBatch.end();
             //endregion
+
+            if (!gameMusic[nrGameMusic].isPlaying() && deathTime == 0) {
+                nrGameMusic = randInt(1, nrMaxGameMusic);
+                gameMusic[nrGameMusic].setVolume(gameMusicVolume);
+                gameMusic[nrGameMusic].play();
+            }
 		}
 	}
 
@@ -517,10 +563,14 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		if (game_state == 1) {
 			y = screenHeight - y;
-			if (x >= screenWidth / 2 - 200 && x <= screenWidth / 2 - 200 + 400 && y >= screenHeight / 2 + 200 && y <= screenHeight / 2 + 200 + 200) {
+			if (x >= screenWidth / 2 - 200 && x <= screenWidth / 2 - 220 + 400 && y >= screenHeight / 2 - 200 && y <= screenHeight / 2 - 400 + 400) {
 				game_state = 2;
 				buttonSound.play();
 				menuMusic.stop();
+                nrGameMusic = randInt(1, nrMaxGameMusic);
+                gameMusicVolume = 0.8f;
+                gameMusic[nrGameMusic].setVolume(gameMusicVolume);
+                gameMusic[nrGameMusic].play();
 			}
 		}
 		if (game_state == 2) {
@@ -627,8 +677,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			if (M[x][y] == 0 && (x > 13 || x < 7 || y > 13 || y < 7))
 				M[x][y] = 6;
 		}
-		if (delayTime >= 50)
-			delayTime -= 50;
+		if (rabbitSpeedDelay >= 90)
+			rabbitSpeedDelay -= 90;
 		camera.translate(-camera.position.x, -camera.position.y);
 		camera.update();
 		levelTextSize = 0.1f;
@@ -669,6 +719,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			drawExplosion = true;
 			Gdx.app.log(TAG, "ok");
 			explosion.reset();
+            nrbombExplosionSound = randInt(1, nrMaxBombExplosionSound);
+            bombExplosionSound[nrbombExplosionSound].play();
 		}
 		else if (System.currentTimeMillis() - deathTime > 5000) {
 			game_state = 1;
@@ -680,7 +732,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				userData.flush();
 			}
 			nrCarrotsCollected = 0;
-			delayTime = 550;
+			rabbitSpeedDelay = 450;
 			level = 0;
 			deathTime = 0;
             arrowSelected = 0;
