@@ -48,7 +48,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	Preferences userData;
     String highscore;
 	Music menuMusic;
-	Sound buttonSound, carrotCollectSound, bombAppearSound, bombArmSound;
+	Sound buttonSound, carrotCollectSound, bombAppearSound, bombArmSound, arrowSelectSound, arrowPlaceSound, arrowCancelSound, arrowRemoveSound;
     Music[] gameMusic;
     Sound[] bombExplosionSound;
     int nrGameMusic, nrbombExplosionSound, nrMaxGameMusic, nrMaxBombExplosionSound;
@@ -139,8 +139,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         carrotCollectSound = Gdx.audio.newSound(Gdx.files.internal("carrotCollect.wav"));
         bombAppearSound = Gdx.audio.newSound(Gdx.files.internal("bombAppear.wav"));
         bombArmSound = Gdx.audio.newSound(Gdx.files.internal("bombArm.mp3"));
+        arrowSelectSound = Gdx.audio.newSound(Gdx.files.internal("arrowSelect.mp3"));
+        arrowCancelSound = Gdx.audio.newSound(Gdx.files.internal("arrowCancel.mp3"));
+        arrowPlaceSound = Gdx.audio.newSound(Gdx.files.internal("arrowPlace.mp3"));
+        arrowRemoveSound = Gdx.audio.newSound(Gdx.files.internal("arrowRemove.mp3"));
 
-        nrMaxGameMusic = 3;
+        nrMaxGameMusic = 10;
         gameMusic = new Music[nrMaxGameMusic + 1];
         for (i = 1; i <= nrMaxGameMusic; i++)
             gameMusic[i] = Gdx.audio.newMusic(Gdx.files.internal("gameMusic" + i + ".mp3"));
@@ -550,6 +554,17 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		explosion.dispose();
 		cameraLockedPic.dispose();
 		cameraUnlockedPic.dispose();
+        carrotCollectSound.dispose();
+        bombAppearSound.dispose();
+        bombArmSound.dispose();
+        arrowSelectSound.dispose();
+        arrowPlaceSound.dispose();
+        arrowCancelSound.dispose();
+        arrowRemoveSound.dispose();
+        for (i = 1; i <= nrMaxBombExplosionSound; i++)
+            bombExplosionSound[i].dispose();
+        for (i = 1; i <= nrMaxGameMusic; i++)
+            gameMusic[i].dispose();
 	}
 
 	@Override
@@ -588,13 +603,24 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				c = (int) pozWorld.x / 200;
 				c++;
 				if (M[c][l] >= 0 && M[c][l] <= 4) {
+                    int aux = M[c][l];
                     M[c][l] = arrowSelected;
+                    if (arrowSelected != 0)
+                        arrowPlaceSound.play();
+                    else if (M[c][l] == 0 && aux >= 1 && aux <= 4)
+                        arrowRemoveSound.play();
                     arrowSelected = 0;
                 }
+                else if (arrowSelected != 0)
+                    arrowCancelSound.play();
 			}
 			else {
-				if (arrow == -1)
-					arrow = 0;
+				if (arrow == -1) {
+                    arrow = 0;
+                    arrowCancelSound.play();
+                }
+                else
+                    arrowSelectSound.play();
 				arrowSelected = arrow;
 			}
 			if (x >= screenWidth - 200 && y >= screenHeight / 2 - 100 && y <= screenHeight / 2 + 100) {
@@ -648,7 +674,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public void pinchStop() {}
 
 	public void createLevel() {
-		int i, j, x, y, nrCarrotsCreated = randInt(20, 50), nrBombsCreated = randInt(10, 20);
+		int i, j, x, y, nrCarrotsCreated = randInt(20 + level, 50 + level), nrBombsCreated = randInt(10 + 3 * level, 20 + 3 * level);
+        if (nrCarrotsCreated > 350)
+            nrCarrotsCreated = 350;
+        if (nrBombsCreated > 350)
+            nrBombsCreated = 350;
 		level++;
 		rabbitL = 10;
 		rabbitC = 10;
@@ -717,7 +747,6 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		if (deathTime == 0) {
 			deathTime = System.currentTimeMillis();
 			drawExplosion = true;
-			Gdx.app.log(TAG, "ok");
 			explosion.reset();
             nrbombExplosionSound = randInt(1, nrMaxBombExplosionSound);
             bombExplosionSound[nrbombExplosionSound].play();
