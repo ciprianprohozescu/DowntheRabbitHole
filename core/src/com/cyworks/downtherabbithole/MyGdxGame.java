@@ -10,10 +10,12 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.ParticleEffect;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.input.GestureDetector;
 import com.badlogic.gdx.input.GestureDetector.GestureListener;
@@ -27,17 +29,17 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
     //region variables
 	SpriteBatch menuBatch, worldBatch, hudBatch;
 	public int game_state; //1 main menu; 2 new level; 3 in game
-	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, rabbit_pic, carrot_pic, bomb_pic, armedBomb_pic;
-	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic, cameraLockedPic, cameraUnlockedPic;
-	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbit, rabbitHole, cameraLocked, cameraUnlocked;
+	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, carrot_pic, bomb_pic, armedBomb_pic;
+	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic, cameraLockedPic, cameraUnlockedPic, rabbitLeftPic, rabbitRightPic, rabbitUpPic, rabbitDownPic;
+	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbitHole, cameraLocked, cameraUnlocked, rabbitLeft, rabbitRight, rabbitUp, rabbitDown;
 	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb;
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera;
 	float mapRight, mapLeft, mapTop, mapBottom, cameraHalfWidth, cameraHalfHeight, cameraLeft, cameraRight, cameraBottom, cameraTop, screenWidth, screenHeight;
-	float levelTextSize, gameMusicVolume;
+	float levelTextSize, gameMusicVolume, rabbitAnimationTime;
 	int l, c, arrowSelected, upUsed, downUsed, leftUsed, rightUsed, rabbitL, rabbitC, rabbitDirection, nrCarrotsCollected, level, nrStarsUsed;
 	Vector3 pozScreen, pozWorld, arrowPos, rabbitPos;
-	int[][] M; //1, 2, 3, 4 directions; 5 carrot; 6 invisible bomb; 7 visible bomb; 8 armed bomb
+	int[][] M; //1 - 4 directions; 5 carrot; 6 invisible bomb; 7 visible bomb; 8 armed bomb
 	boolean rabbitMove, drawExplosion, isCameraLocked;
 	long rabbitStartTime, rabbitSpeedDelay, levelTextStartTime, deathTime;
 	FreeTypeFontGenerator fontGenerator;
@@ -51,8 +53,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	Sound buttonSound, carrotCollectSound, bombAppearSound, bombArmSound, arrowSelectSound, arrowPlaceSound, arrowCancelSound, arrowRemoveSound;
     Music[] gameMusic;
     Sound[] bombExplosionSound;
-    int nrGameMusic, nrbombExplosionSound, nrMaxGameMusic, nrMaxBombExplosionSound;
+    int nrGameMusic, nrbombExplosionSound, nrMaxGameMusic, nrMaxBombExplosionSound, nrTrapsMax;
+    TextureAtlas rabbitRightPics, rabbitLeftPics, rabbitUpPics, rabbitDownPics;
+    Animation rabbitRightAnimation, rabbitLeftAnimation, rabbitUpAnimation, rabbitDownAnimation;
     //endregion
+
+    //traps: 1 - carrots turn into bombs; 2 - bombs become invisible; 3 - bombs become armed
 
 	@Override
 	public void create () {
@@ -77,7 +83,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		arrowLeftSelectedPic = new Texture("ArrowLeftSelected.png");
 		arrowRightSelectedPic = new Texture("ArrowRightSelected.png");
 		noArrow_pic = new Texture("NoArrow.png");
-		rabbit_pic = new Texture("rabbit.png");
+		rabbitLeftPic = new Texture("rabbitLeftStill.png");
+        rabbitRightPic = new Texture("rabbitRightStill.png");
+        rabbitUpPic = new Texture("rabbitUpStill.png");
+        rabbitDownPic = new Texture("rabbitDownStill.png");
 		carrot_pic = new Texture("carrot.png");
 		bomb_pic = new Texture("bomb.png");
 		armedBomb_pic = new Texture("armedBomb.png");
@@ -90,7 +99,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		arrowUpSelected = new Sprite(arrowUpSelectedPic);
 		noArrow = new Sprite(noArrow_pic);
 		map = new Sprite(map_pic);
-		rabbit = new Sprite(rabbit_pic);
+		rabbitLeft = new Sprite(rabbitLeftPic);
+        rabbitRight = new Sprite(rabbitRightPic);
+        rabbitUp = new Sprite(rabbitUpPic);
+        rabbitDown = new Sprite(rabbitDownPic);
 		rabbitHole = new Sprite(rabbitHole_pic);
 		arrowUp = new Sprite[410];
 		for (i = 1; i <= 400; i++)
@@ -115,6 +127,14 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			armedBomb[i] = new Sprite(armedBomb_pic);
 		cameraLocked = new Sprite(cameraLockedPic);
 		cameraUnlocked = new Sprite(cameraUnlockedPic);
+        rabbitRightPics = new TextureAtlas(Gdx.files.internal("rabbitRight.pack"));
+        rabbitRightAnimation = new Animation(1/60f, rabbitRightPics.getRegions());
+        rabbitLeftPics = new TextureAtlas(Gdx.files.internal("rabbitLeft.pack"));
+        rabbitLeftAnimation = new Animation(1/60f, rabbitLeftPics.getRegions());
+        rabbitUpPics = new TextureAtlas(Gdx.files.internal("rabbitUp.pack"));
+        rabbitUpAnimation = new Animation(1/60f, rabbitUpPics.getRegions());
+        rabbitDownPics = new TextureAtlas(Gdx.files.internal("rabbitDown.pack"));
+        rabbitDownAnimation = new Animation(1/60f, rabbitDownPics.getRegions());
         //endregion
 
         //region fonts
@@ -162,8 +182,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         screenHeight = Gdx.graphics.getHeight();
 
         //region pe
-        stars = new ParticleEffect[410];
-        for (i = 1; i <= 400; i++) {
+        stars = new ParticleEffect[10];
+        for (i = 1; i <= 6; i++) {
             stars[i] = new ParticleEffect();
             stars[i].load(Gdx.files.internal("stars.party"),Gdx.files.internal(""));
             stars[i].start();
@@ -233,7 +253,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		Gdx.gl.glClearColor(1, 1, 1, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        for (i = 1; i <= 400; i++)
+        for (i = 1; i <= 6; i++)
             stars[i].update(Gdx.graphics.getDeltaTime());
         fireworks.update(Gdx.graphics.getDeltaTime());
 		leaves.update(Gdx.graphics.getDeltaTime());
@@ -289,7 +309,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 						default: break;
 					}
 				}
-				rabbit.setPosition(rabbitPos.x, rabbitPos.y);
+                rabbitUp.setPosition(rabbitPos.x, rabbitPos.y);
+				rabbitRight.setPosition(rabbitPos.x, rabbitPos.y);
+                rabbitDown.setPosition(rabbitPos.x, rabbitPos.y);
+                rabbitLeft.setPosition(rabbitPos.x, rabbitPos.y);
                 if (isCameraLocked)
                     safeTranslate(rabbitPos.x - camera.position.x, rabbitPos.y - camera.position.y);
 			}
@@ -445,12 +468,36 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			}
 
 			rabbitHole.draw(worldBatch);
-			if (deathTime == 0)
-				rabbit.draw(worldBatch);
+			if (deathTime == 0) {
+                if (rabbitPos.x % 200 == 0 && rabbitPos.y % 200 == 0) {
+                    if (rabbitDirection == 1)
+                        rabbitUp.draw(worldBatch);
+                    else if (rabbitDirection == 2)
+                        rabbitRight.draw(worldBatch);
+                    else if (rabbitDirection == 3)
+                        rabbitDown.draw(worldBatch);
+                    else if (rabbitDirection == 4)
+                        rabbitLeft.draw(worldBatch);
+                    rabbitAnimationTime = 0;
+                }
+                else {
+                    rabbitAnimationTime += Gdx.graphics.getRawDeltaTime();
+                    if (rabbitDirection == 1)
+                        worldBatch.draw(rabbitUpAnimation.getKeyFrame(rabbitAnimationTime, false), rabbitPos.x, rabbitPos.y);
+                    else if (rabbitDirection == 2)
+                        worldBatch.draw(rabbitRightAnimation.getKeyFrame(rabbitAnimationTime, false), rabbitPos.x, rabbitPos.y);
+                    else if (rabbitDirection == 3)
+                        worldBatch.draw(rabbitDownAnimation.getKeyFrame(rabbitAnimationTime, false), rabbitPos.x, rabbitPos.y);
+                    else if (rabbitDirection == 4)
+                        worldBatch.draw(rabbitLeftAnimation.getKeyFrame(rabbitAnimationTime, false), rabbitPos.x, rabbitPos.y);
+                }
+            }
 
             for (i = 1; i <= nrStarsUsed; i++) {
                 stars[i].draw(worldBatch);
             }
+            while (nrStarsUsed > 0 && stars[nrStarsUsed].isComplete())
+                nrStarsUsed--;
 
 			if (deathTime > 0) {
 				explosion.draw(worldBatch);
@@ -539,13 +586,16 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		arrowLeftSelectedPic.dispose();
 		arrowRightSelectedPic.dispose();
 		noArrow_pic.dispose();
-		rabbit_pic.dispose();
+		rabbitLeftPic.dispose();
+        rabbitRightPic.dispose();
+        rabbitUpPic.dispose();
+        rabbitDownPic.dispose();
 		carrot_pic.dispose();
 		bomb_pic.dispose();
 		armedBomb_pic.dispose();
 		fontGenerator.dispose();
 		scoreFont.dispose();
-        for (i = 1; i <= 400; i++)
+        for (i = 1; i <= 6; i++)
             stars[i].dispose();
 		fireworks.dispose();
 		leaves.dispose();
@@ -565,6 +615,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
             bombExplosionSound[i].dispose();
         for (i = 1; i <= nrMaxGameMusic; i++)
             gameMusic[i].dispose();
+        rabbitRightPics.dispose();
 	}
 
 	@Override
