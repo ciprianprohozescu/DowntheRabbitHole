@@ -28,10 +28,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
     //region variables
 	SpriteBatch menuBatch, worldBatch, hudBatch;
-	public int game_state; //1 main menu; 2 new level; 3 in game
-	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, carrot_pic, bomb_pic, armedBomb_pic;
+	public int game_state; //1 main menu; 2 new level; 3 in game; 4 powerups menu
+	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, carrot_pic, bomb_pic, armedBomb_pic, playButtonPic, powerupsButtonPic, homeButtonPic;
 	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic, cameraLockedPic, cameraUnlockedPic, rabbitLeftPic, rabbitRightPic, rabbitUpPic, rabbitDownPic;
 	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbitHole, cameraLocked, cameraUnlocked, rabbitLeft, rabbitRight, rabbitUp, rabbitDown;
+    Sprite playButton, powerupsButton, homeButton;
 	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb;
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera;
@@ -93,6 +94,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		rabbitHole_pic = new Texture("rabbitHole.png");
 		cameraLockedPic = new Texture("cameraLocked.png");
 		cameraUnlockedPic = new Texture("cameraUnlocked.png");
+        playButtonPic = new Texture("playButton.png");
+        powerupsButtonPic = new Texture("powerupsButton.png");
+        homeButtonPic = new Texture("homeButton.png");
 		arrowLeftSelected = new Sprite(arrowLeftSelectedPic);
 		arrowRightSelected = new Sprite(arrowRightSelectedPic);
 		arrowDownSelected = new Sprite(arrowDownSelectedPic);
@@ -127,6 +131,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 			armedBomb[i] = new Sprite(armedBomb_pic);
 		cameraLocked = new Sprite(cameraLockedPic);
 		cameraUnlocked = new Sprite(cameraUnlockedPic);
+        playButton = new Sprite(playButtonPic);
+        powerupsButton = new Sprite(powerupsButtonPic);
+        homeButton = new Sprite(homeButtonPic);
+
         rabbitRightPics = new TextureAtlas(Gdx.files.internal("rabbitRight.pack"));
         rabbitRightAnimation = new Animation(1/60f, rabbitRightPics.getRegions());
         rabbitLeftPics = new TextureAtlas(Gdx.files.internal("rabbitLeft.pack"));
@@ -248,6 +256,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		mapRight = map.getWidth() / 2;
 		mapBottom = -map.getHeight() / 2;
 		mapTop = map.getHeight() / 2;
+
+        playButton.setPosition(screenWidth / 2 - 410, screenHeight / 2 - 200);
+        powerupsButton.setPosition(screenWidth / 2 + 10, screenHeight / 2 - 200);
+        homeButton.setPosition(10, 10);
         //endregion
 
 	}
@@ -269,8 +281,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		if (game_state == 1) {
 			menuBatch.begin();
             titleFont.draw(menuBatch, "Down the Rabbit Hole", screenWidth / 2 - 800, screenHeight - 150);
-			highscoreFont.draw(menuBatch, "Play", screenWidth / 2 - 120, screenHeight / 2 - 50);
-            highscoreFont.draw(menuBatch, highscore, screenWidth / 2 - 400, 200);
+            playButton.draw(menuBatch);
+            powerupsButton.draw(menuBatch);
+            highscoreFont.draw(menuBatch, highscore, screenWidth / 2 - 450, 200);
 			if (leaves.isComplete())
 				leaves.reset();
 			leaves.draw(menuBatch);
@@ -620,6 +633,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                 gameMusic[nrGameMusic].play();
             }
 		}
+        else if (game_state == 4) {
+            menuBatch.begin();
+            homeButton.draw(menuBatch);
+            menuBatch.end();
+        }
 	}
 
 	public void dispose() {
@@ -669,6 +687,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         rabbitRightPics.dispose();
         trap.dispose();
         trapSound.dispose();
+        playButtonPic.dispose();
+        powerupsButtonPic.dispose();
+        homeButtonPic.dispose();
 	}
 
 	@Override
@@ -682,7 +703,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		if (game_state == 1) {
 			y = screenHeight - y;
-			if (x >= screenWidth / 2 - 200 && x <= screenWidth / 2 - 220 + 400 && y >= screenHeight / 2 - 200 && y <= screenHeight / 2 - 400 + 400) {
+			if (x >= playButton.getX() && x <= playButton.getX() + playButton.getWidth() && y >= playButton.getY() && y <= playButton.getY() + playButton.getHeight()) {
 				game_state = 2;
 				buttonSound.play();
 				menuMusic.stop();
@@ -691,6 +712,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                 gameMusic[nrGameMusic].setVolume(gameMusicVolume);
                 gameMusic[nrGameMusic].play();
 			}
+            else if (x >= powerupsButton.getX() && x <= powerupsButton.getX() + powerupsButton.getWidth() && y >= powerupsButton.getY() && y <= powerupsButton.getY() + powerupsButton.getHeight()) {
+                game_state = 4;
+                buttonSound.play();
+            }
 		}
 		if (game_state == 2) {
 			createLevel();
@@ -736,6 +761,13 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 					isCameraLocked = false;
 			}
 		}
+        if (game_state == 4) {
+            y = screenHeight - y;
+            if (x >= homeButton.getX() && x <= homeButton.getX() + homeButton.getWidth() && y >= homeButton.getY() && y <= homeButton.getY() + homeButton.getHeight()) {
+                buttonSound.play();
+                game_state = 1;
+            }
+        }
 		return true;
 	}
 
