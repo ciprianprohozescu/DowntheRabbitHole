@@ -21,6 +21,12 @@ import com.badlogic.gdx.input.GestureDetector;
 import com.badlogic.gdx.input.GestureDetector.GestureListener;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.viewport.ExtendViewport;
+import com.badlogic.gdx.utils.viewport.FillViewport;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.StretchViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.Random;
 
@@ -31,21 +37,22 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public int game_state; //1 main menu; 2 new level; 3 in game; 4 powerups menu
 	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, carrot_pic, bomb_pic, armedBomb_pic, playButtonPic, powerupsButtonPic, homeButtonPic;
 	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic, cameraLockedPic, cameraUnlockedPic, rabbitLeftPic, rabbitRightPic, rabbitUpPic, rabbitDownPic;
+    Texture shieldPortraitPic, shieldPic, upgradeButonPic, chargeButtonPic, powerupPic;
 	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbitHole, cameraLocked, cameraUnlocked, rabbitLeft, rabbitRight, rabbitUp, rabbitDown;
-    Sprite playButton, powerupsButton, homeButton;
-	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb;
+    Sprite playButton, powerupsButton, homeButton, shieldPortrait, shield, upgradeButton, chargeButton;
+	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb, powerup;
 	public static final String TAG = "myMessage";
-	OrthographicCamera camera;
+	OrthographicCamera camera, menuCamera, hudCamera;
 	float mapRight, mapLeft, mapTop, mapBottom, cameraHalfWidth, cameraHalfHeight, cameraLeft, cameraRight, cameraBottom, cameraTop, screenWidth, screenHeight;
 	float levelTextSize, gameMusicVolume, rabbitAnimationTime;
-	int l, c, arrowSelected, upUsed, downUsed, leftUsed, rightUsed, rabbitL, rabbitC, rabbitDirection, nrCarrotsCollected, level, nrStarsUsed;
+	int l, c, arrowSelected, upUsed, downUsed, leftUsed, rightUsed, rabbitL, rabbitC, rabbitDirection, nrCarrotsCollected, level, nrMaxStars;
 	Vector3 pozScreen, pozWorld, arrowPos, rabbitPos;
-	int[][] M; //1 - 4 directions; 5 carrot; 6 invisible bomb; 7 visible bomb; 8 armed bomb; 9 hole; 10 trap
+	int[][] M; //1 - 4 directions; 5 carrot; 6 invisible bomb; 7 visible bomb; 8 armed bomb; 9 hole; 10 trap; 11 powerup
 	boolean rabbitMove, drawExplosion, isCameraLocked, isTrapActive, isInvisibleBombsTrapActive;
 	long rabbitStartTime, rabbitSpeedDelay, levelTextStartTime, deathTime;
 	FreeTypeFontGenerator fontGenerator;
 	FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
-	BitmapFont scoreFont, levelFont, highscoreFont, titleFont;
+	BitmapFont scoreFont, levelFont, highscoreFont, titleFont, powerupsFont, powerupsSmallFont;
 	ParticleEffect[] stars;
     ParticleEffect fireworks, leaves, explosion, trap;
 	Preferences userData;
@@ -54,9 +61,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	Sound buttonSound, carrotCollectSound, bombAppearSound, bombArmSound, arrowSelectSound, arrowPlaceSound, arrowCancelSound, arrowRemoveSound, trapSound;
     Music[] gameMusic;
     Sound[] bombExplosionSound;
-    int nrGameMusic, nrbombExplosionSound, nrMaxGameMusic, nrMaxBombExplosionSound, nrTrapTypes;
+    int nrGameMusic, nrbombExplosionSound, nrMaxGameMusic, nrMaxBombExplosionSound, nrTrapTypes, nrMaxPowerups, carrotBank, currentPowerup, nrAvailablePowerups;
     TextureAtlas rabbitRightPics, rabbitLeftPics, rabbitUpPics, rabbitDownPics;
     Animation rabbitRightAnimation, rabbitLeftAnimation, rabbitUpAnimation, rabbitDownAnimation;
+    int[] powerupsLevels, powerupsCharges, availablePowerups, powerupsUpgradePrices, powerupsChargePrices, activePowerups;
+    Viewport viewport, menuViewport, hudViewport;
     //endregion
 
     //traps: 1 - carrots turn into bombs; 2 - bombs become invisible; 3 - bombs become armed
@@ -68,7 +77,17 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		Gdx.input.setInputProcessor(new GestureDetector(this));
 
-		camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		camera = new OrthographicCamera();
+        menuCamera = new OrthographicCamera();
+        hudCamera = new OrthographicCamera();
+        viewport = new ScreenViewport(camera);
+        menuViewport = new FillViewport(1920, 1080, menuCamera);
+        hudViewport = new FillViewport(1920, 1080, hudCamera);
+        viewport.apply();
+        menuViewport.apply();
+        hudViewport.apply();
+        menuCamera.position.set(screenWidth/2,screenHeight/2,0);
+        hudCamera.position.set(screenWidth/2,screenHeight/2,0);
 
         //region textures and sprites
 		menuBatch = new SpriteBatch();
@@ -97,10 +116,17 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         playButtonPic = new Texture("playButton.png");
         powerupsButtonPic = new Texture("powerupsButton.png");
         homeButtonPic = new Texture("homeButton.png");
+        shieldPortraitPic = new Texture("shieldPortrait.png");
+        shieldPic = new Texture("shield.png");
+        upgradeButonPic = new Texture("upgradeButton.png");
+        chargeButtonPic = new Texture("chargeButton.png");
+        powerupPic = new Texture("powerup.png");
 		arrowLeftSelected = new Sprite(arrowLeftSelectedPic);
 		arrowRightSelected = new Sprite(arrowRightSelectedPic);
 		arrowDownSelected = new Sprite(arrowDownSelectedPic);
 		arrowUpSelected = new Sprite(arrowUpSelectedPic);
+        upgradeButton = new Sprite(upgradeButonPic);
+        chargeButton = new Sprite(chargeButtonPic);
 		noArrow = new Sprite(noArrow_pic);
 		map = new Sprite(map_pic);
 		rabbitLeft = new Sprite(rabbitLeftPic);
@@ -134,6 +160,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         playButton = new Sprite(playButtonPic);
         powerupsButton = new Sprite(powerupsButtonPic);
         homeButton = new Sprite(homeButtonPic);
+        shieldPortrait = new Sprite(shieldPortraitPic);
+        shield = new Sprite(shieldPic);
+        powerup = new Sprite[410];
+        for (i = 1; i <= 400; i++)
+            powerup[i] = new Sprite(powerupPic);
 
         rabbitRightPics = new TextureAtlas(Gdx.files.internal("rabbitRight.pack"));
         rabbitRightAnimation = new Animation(1/60f, rabbitRightPics.getRegions());
@@ -156,6 +187,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         highscoreFont = fontGenerator.generateFont(fontParameter);
         fontParameter.size = 110;
         titleFont = fontGenerator.generateFont(fontParameter);
+        fontParameter.size = 60;
+        powerupsFont = fontGenerator.generateFont(fontParameter);
+        fontParameter.size = 40;
+        powerupsSmallFont = fontGenerator.generateFont(fontParameter);
         //endregion
 
         //region sounds
@@ -184,15 +219,32 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
             bombExplosionSound[i] = Gdx.audio.newSound(Gdx.files.internal("bombExplosion" + i + ".wav"));
         //endregion
 
+        //region user data
         userData = Gdx.app.getPreferences("User Data");
         highscore = "Highscore: " + userData.getInteger("highscore", 0);
+        nrMaxPowerups = 1;
+        powerupsLevels = new int[nrMaxPowerups + 1];
+        powerupsCharges = new int[nrMaxPowerups + 1];
+        powerupsUpgradePrices = new int[nrMaxPowerups + 1];
+        powerupsChargePrices = new int[nrMaxPowerups + 1];
+        activePowerups = new int[nrMaxPowerups + 1];
+        availablePowerups = new int[nrMaxPowerups + 1];
+        for (i = 1; i <= nrMaxPowerups; i++) {
+            powerupsLevels[i] = userData.getInteger("powerupLevel" + i, 0);
+            powerupsCharges[i] = userData.getInteger("powerupCharges" + i, 0);
+            powerupsChargePrices[i] = 1;
+            powerupsUpgradePrices[i] = 2;
+        }
+        carrotBank = userData.getInteger("carrotBank", 0);
+        //endregion
 
-        screenWidth = Gdx.graphics.getWidth();
-        screenHeight = Gdx.graphics.getHeight();
+        screenWidth = 1920;
+        screenHeight = 1080;
 
         //region pe
-        stars = new ParticleEffect[10];
-        for (i = 1; i <= 6; i++) {
+        nrMaxStars = 20;
+        stars = new ParticleEffect[nrMaxStars + 1];
+        for (i = 1; i <= nrMaxStars; i++) {
             stars[i] = new ParticleEffect();
             stars[i].load(Gdx.files.internal("stars.party"),Gdx.files.internal(""));
             stars[i].start();
@@ -260,18 +312,25 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         playButton.setPosition(screenWidth / 2 - 410, screenHeight / 2 - 200);
         powerupsButton.setPosition(screenWidth / 2 + 10, screenHeight / 2 - 200);
         homeButton.setPosition(10, 10);
+        shieldPortrait.setPosition(homeButton.getWidth(), homeButton.getHeight() + 220);
+        upgradeButton.setPosition(screenWidth / 2 - 410, 10);
+        chargeButton.setPosition(screenWidth / 2 + 10, 10);
         //endregion
 
 	}
 
 	@Override
 	public void render () {
-		int i, j, nrCarrotsUsed = 0, nrBombsUsed = 0, nrArmedBombsUsed = 0;
+		int i, j, nrCarrotsUsed = 0, nrBombsUsed = 0, nrArmedBombsUsed = 0, nrPowerupsUsed = 0;
+
+        camera.update();
+        hudCamera.update();
+        menuCamera.update();
 
 		Gdx.gl.glClearColor(1, 1, 1, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        for (i = 1; i <= 6; i++)
+        for (i = 1; i <= nrMaxStars; i++)
             stars[i].update(Gdx.graphics.getDeltaTime());
         fireworks.update(Gdx.graphics.getDeltaTime());
 		leaves.update(Gdx.graphics.getDeltaTime());
@@ -279,6 +338,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         trap.update(Gdx.graphics.getDeltaTime());
 
 		if (game_state == 1) {
+            menuBatch.setProjectionMatrix(menuCamera.combined);
 			menuBatch.begin();
             titleFont.draw(menuBatch, "Down the Rabbit Hole", screenWidth / 2 - 800, screenHeight - 150);
             playButton.draw(menuBatch);
@@ -361,14 +421,19 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 						case 5:
 							nrCarrotsCollected++;
 							M[rabbitC][rabbitL] = 0;
-                            stars[++nrStarsUsed].setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
-                            stars[nrStarsUsed].reset();
+                            for (i = 1; i <= nrMaxStars; i++) {
+                                if (stars[i].isComplete()) {
+                                    stars[i].setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
+                                    stars[i].reset();
+                                    break;
+                                }
+                            }
                             carrotCollectSound.play();
 							break;
 						case 8:
 							M[rabbitC][rabbitL] = 0;
-							explosion.setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
-							game_over();
+                            explosion.setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
+                            game_over();
 							break;
 						case 9:
 							createLevel();
@@ -413,6 +478,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                                 }
                                 Gdx.app.log(TAG, "" + nrTrapUsed);
                             }
+                            break;
+                        case 11:
+                            int randomPowerup = randInt(1, nrAvailablePowerups);
+                            activePowerups[randomPowerup] = powerupsLevels[randomPowerup];
+                            M[rabbitC][rabbitL] = 0;
                             break;
 						default: break;
 					}
@@ -527,6 +597,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 						armedBomb[++nrArmedBombsUsed].setPosition((i - 1) * 200 - 2000, (20 - j) * 200 - 2000);
 						armedBomb[nrArmedBombsUsed].draw(worldBatch);
 					}
+                    else if (M[i][j] == 11) {
+                        powerup[++nrPowerupsUsed].setPosition((i - 1) * 200 - 2000, (20 - j) * 200 - 2000);
+                        powerup[nrPowerupsUsed].draw(worldBatch);
+                    }
 				}
 			}
 
@@ -556,11 +630,14 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                 }
             }
 
-            for (i = 1; i <= nrStarsUsed; i++) {
+            if (activePowerups[1] > 0) {
+                shield.setPosition(rabbitPos.x - 50, rabbitPos.y  -50);
+                shield.draw(worldBatch);
+            }
+
+            for (i = 1; i <= nrMaxStars; i++) {
                 stars[i].draw(worldBatch);
             }
-            while (nrStarsUsed > 0 && stars[nrStarsUsed].isComplete())
-                nrStarsUsed--;
 
 			if (deathTime > 0) {
 				explosion.draw(worldBatch);
@@ -576,6 +653,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
             //endregion
 
             //region hud
+            hudBatch.setProjectionMatrix(hudCamera.combined);
 			hudBatch.begin();
 
 			noArrow.draw(hudBatch);
@@ -616,7 +694,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				}
 			}
 
-			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 150, screenHeight);
+			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 200, screenHeight);
             fireworks.draw(hudBatch);
 
 			if (isCameraLocked)
@@ -634,8 +712,37 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
             }
 		}
         else if (game_state == 4) {
+            menuBatch.setProjectionMatrix(menuCamera.combined);
             menuBatch.begin();
             homeButton.draw(menuBatch);
+            powerupsFont.draw(menuBatch, "" + carrotBank, screenWidth - 450, screenHeight - 30);
+            carrot[1].setPosition(screenWidth - 610, screenHeight - 175);
+            carrot[1].draw(menuBatch);
+
+            switch (currentPowerup) {
+                case 1:
+                    powerupsFont.draw(menuBatch, "beta-Carotene Refractor", screenWidth / 2 - 550, screenHeight - 150);
+                    shieldPortrait.draw(menuBatch);
+                    if (powerupsLevels[currentPowerup] == 0 || powerupsLevels[currentPowerup] == 1)
+                        powerupsSmallFont.draw(menuBatch, "Protects you from \n\none explosion.", screenWidth / 2 - 100, screenHeight - 350);
+                    else if (powerupsLevels[currentPowerup] == 2)
+                        powerupsSmallFont.draw(menuBatch, "Protects you from \n\none explosion. \n\nDeactivates all adjacent \n\nbombs when destroyed.", screenWidth / 2 - 100, screenHeight - 350);
+                    else
+                        powerupsSmallFont.draw(menuBatch, "Protects you from \n\none explosion. \n\nDeactivates all bombs \n\naround you when destroyed.", screenWidth / 2 - 100, screenHeight - 350);
+                break;
+            }
+            powerupsFont.draw(menuBatch, "Level " + powerupsLevels[currentPowerup], screenWidth / 2 - 200, screenHeight - 250);
+            if (powerupsLevels[currentPowerup] < 3)
+                powerupsSmallFont.draw(menuBatch, "Upgrade cost: " + powerupsUpgradePrices[currentPowerup], screenWidth / 2 - 100, screenHeight - 675);
+            if (powerupsLevels[currentPowerup] > 0) {
+                powerupsSmallFont.draw(menuBatch, "Charges: " + powerupsCharges[currentPowerup], screenWidth / 2 - 100, screenHeight - 725);
+                if (powerupsCharges[currentPowerup] == 0)
+                    powerupsSmallFont.draw(menuBatch, "Charge cost: " + powerupsChargePrices[currentPowerup], screenWidth / 2 - 100, screenHeight - 775);
+            }
+            if (powerupsLevels[currentPowerup] < 3 && carrotBank >= powerupsUpgradePrices[currentPowerup])
+                upgradeButton.draw(menuBatch);
+            if (powerupsCharges[currentPowerup] == 0 && powerupsLevels[currentPowerup] > 0 && carrotBank >= powerupsChargePrices[currentPowerup])
+                chargeButton.draw(menuBatch);
             menuBatch.end();
         }
 	}
@@ -664,7 +771,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		armedBomb_pic.dispose();
 		fontGenerator.dispose();
 		scoreFont.dispose();
-        for (i = 1; i <= 6; i++)
+        for (i = 1; i <= nrMaxStars; i++)
             stars[i].dispose();
 		fireworks.dispose();
 		leaves.dispose();
@@ -690,6 +797,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         playButtonPic.dispose();
         powerupsButtonPic.dispose();
         homeButtonPic.dispose();
+        powerupsFont.dispose();
+        shieldPortraitPic.dispose();
+        upgradeButonPic.dispose();
+        chargeButtonPic.dispose();
+        shieldPic.dispose();
+        powerupPic.dispose();
 	}
 
 	@Override
@@ -702,8 +815,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		int arrow = isArrowSelected(x, y);
 
 		if (game_state == 1) {
-			y = screenHeight - y;
-			if (x >= playButton.getX() && x <= playButton.getX() + playButton.getWidth() && y >= playButton.getY() && y <= playButton.getY() + playButton.getHeight()) {
+            pozScreen.x = x;
+            pozScreen.y = y;
+            pozWorld = menuCamera.unproject(pozScreen);
+            x = pozWorld.x;
+            y = pozWorld.y;
+			if (isButtonTouched(playButton, x , y)) {
 				game_state = 2;
 				buttonSound.play();
 				menuMusic.stop();
@@ -711,10 +828,17 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                 gameMusicVolume = 0.8f;
                 gameMusic[nrGameMusic].setVolume(gameMusicVolume);
                 gameMusic[nrGameMusic].play();
+                for (int i = 1; i <= nrMaxPowerups; i++) {
+                    if (powerupsCharges[i] > 0) {
+                        nrAvailablePowerups++;
+                        availablePowerups[nrAvailablePowerups] = i;
+                    }
+                }
 			}
-            else if (x >= powerupsButton.getX() && x <= powerupsButton.getX() + powerupsButton.getWidth() && y >= powerupsButton.getY() && y <= powerupsButton.getY() + powerupsButton.getHeight()) {
+            else if (isButtonTouched(powerupsButton, x , y)) {
                 game_state = 4;
                 buttonSound.play();
+                currentPowerup = 1;
             }
 		}
 		if (game_state == 2) {
@@ -752,20 +876,30 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                     arrowSelectSound.play();
 				arrowSelected = arrow;
 			}
-			if (x >= screenWidth - 200 && y >= screenHeight / 2 - 100 && y <= screenHeight / 2 + 100) {
-				if (!isCameraLocked) {
-					isCameraLocked = true;
-					safeTranslate(rabbitPos.x - camera.position.x, rabbitPos.y - camera.position.y);
-				}
-				else
-					isCameraLocked = false;
-			}
 		}
         if (game_state == 4) {
-            y = screenHeight - y;
-            if (x >= homeButton.getX() && x <= homeButton.getX() + homeButton.getWidth() && y >= homeButton.getY() && y <= homeButton.getY() + homeButton.getHeight()) {
+            pozScreen.x = x;
+            pozScreen.y = y;
+            pozWorld = menuCamera.unproject(pozScreen);
+            x = pozWorld.x;
+            y = pozWorld.y;
+            if (isButtonTouched(homeButton, x, y)) {
                 buttonSound.play();
                 game_state = 1;
+            }
+            if (isButtonTouched(upgradeButton, x, y) && powerupsLevels[currentPowerup] < 3 && carrotBank >= powerupsUpgradePrices[currentPowerup]) {
+                carrotBank -= powerupsUpgradePrices[currentPowerup];
+                powerupsLevels[currentPowerup]++;
+                //userData.putInteger("powerupLevel" + currentPowerup, powerupsLevels[currentPowerup]);
+                //userData.flush();
+                buttonSound.play();
+            }
+            if (isButtonTouched(chargeButton, x, y) && powerupsCharges[currentPowerup] == 0 && powerupsLevels[currentPowerup] > 0 && carrotBank >= powerupsChargePrices[currentPowerup]) {
+                carrotBank -= powerupsChargePrices[currentPowerup];
+                powerupsCharges[currentPowerup] = 5;
+                //userData.putInteger("powerupCharges" + currentPowerup, powerupsCharges[currentPowerup]);
+                //userData.flush();
+                buttonSound.play();
             }
         }
 		return true;
@@ -810,7 +944,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public void pinchStop() {}
 
 	public void createLevel() {
-		int i, j, x, y, nrCarrotsCreated = randInt(20 + level, 50 + level), nrBombsCreated = randInt(15 + 3 * level, 20 + 3 * level), nrTrapsCreated = randInt(3, 6 + level);
+		int i, j, x, y, nrCarrotsCreated = randInt(20 + level, 50 + level),
+                nrBombsCreated = randInt(15 + 3 * level, 20 + 3 * level), nrTrapsCreated = randInt(3, 6 + level),
+                nrPowerupsCreated = randInt(0, nrAvailablePowerups);
         if (nrCarrotsCreated > 350)
             nrCarrotsCreated = 350;
         if (nrBombsCreated > 350)
@@ -831,6 +967,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		y = randInt(2, 19);
 		M[x][y] = 9;
 		rabbitHole.setPosition((x - 1) * 200 - 2000, (20 - y) * 200 - 2000);
+        for (i = 1; i <= nrPowerupsCreated; i++) {
+            x = randInt(2, 19);
+            y = randInt(2, 19);
+            if (M[x][y] == 0)
+                M[x][y] = 11;
+        }
         if (level > 1) {
             for (i = 1; i <= nrTrapsCreated; i++) {
                 x = randInt(2, 19);
@@ -852,19 +994,33 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				M[x][y] = 6;
 		}
 		if (rabbitSpeedDelay >= 90)
-			rabbitSpeedDelay -= 90;
-		camera.translate(-camera.position.x, -camera.position.y);
+            rabbitSpeedDelay -= 90;
+        camera.translate(-camera.position.x, -camera.position.y);
 		camera.update();
 		levelTextSize = 0.1f;
 		levelTextStartTime = 0;
-        nrStarsUsed = 0;
         isTrapActive = false;
         isInvisibleBombsTrapActive = false;
+        for (i = 1; i <= nrMaxPowerups; i++)
+            activePowerups[i] = 0;
 	}
 
 	public int isArrowSelected(float x, float y) {
 		float l = (screenWidth - 1000) / 4;
-		if (y < screenHeight - 200)
+        pozScreen.x = x;
+        pozScreen.y = y;
+        pozWorld = hudCamera.unproject(pozScreen);
+        x = pozWorld.x;
+        y = pozWorld.y;
+        if (x >= screenWidth - 200 && y >= screenHeight / 2 - 100 && y <= screenHeight / 2 + 100) {
+            if (!isCameraLocked) {
+                isCameraLocked = true;
+                safeTranslate(rabbitPos.x - camera.position.x, rabbitPos.y - camera.position.y);
+            }
+            else
+                isCameraLocked = false;
+        }
+		if (y > 200)
 			return 0;
 		if (x <= 200)
 			return -1;
@@ -889,29 +1045,67 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	}
 
 	public void game_over() {
-		rabbitDirection = 0;
-		if (deathTime == 0) {
-			deathTime = System.currentTimeMillis();
-			drawExplosion = true;
-			explosion.reset();
-            nrbombExplosionSound = randInt(1, nrMaxBombExplosionSound);
-            bombExplosionSound[nrbombExplosionSound].play();
-		}
-		else if (System.currentTimeMillis() - deathTime > 5000) {
-			game_state = 1;
-			menuMusic.play();
-			leaves.reset();
-			if (nrCarrotsCollected > userData.getInteger("highscore", 0)) {
-				userData.putInteger("highscore", nrCarrotsCollected);
-				highscore = "Highscore: " + nrCarrotsCollected;
-				userData.flush();
-			}
-			nrCarrotsCollected = 0;
-			rabbitSpeedDelay = 450;
-			level = 0;
-			deathTime = 0;
-            arrowSelected = 0;
-		}
+        if (activePowerups[1] > 0) {
+            if (activePowerups[1] == 2) {
+                int i, j;
+                i = rabbitL - 1;
+                j = rabbitC;
+                if (M[j][i] >= 6 && M[j][i] <= 8)
+                    M[j][i] = 0;
+                i = rabbitL + 1;
+                if (M[j][i] >= 6 && M[j][i] <= 8)
+                    M[j][i] = 0;
+                i = rabbitL;
+                j = rabbitC + 1;
+                if (M[j][i] >= 6 && M[j][i] <= 8)
+                    M[j][i] = 0;
+                j = rabbitC - 1;
+                if (M[j][i] >= 6 && M[j][i] <= 8)
+                    M[j][i] = 0;
+            }
+            else if (activePowerups[1] == 3) {
+                int i, j;
+                for (i = rabbitL - 1; i <= rabbitL + 1; i++) {
+                    for (j = rabbitC - 1; j <= rabbitC + 1; j++) {
+                        if (M[j][i] >= 6 && M[j][i] <= 8)
+                            M[j][i] = 0;
+                    }
+                }
+            }
+            activePowerups[1] = 0;
+        }
+        else {
+            rabbitDirection = 0;
+            if (deathTime == 0) {
+                deathTime = System.currentTimeMillis();
+                drawExplosion = true;
+                explosion.reset();
+                nrbombExplosionSound = randInt(1, nrMaxBombExplosionSound);
+                bombExplosionSound[nrbombExplosionSound].play();
+            } else if (System.currentTimeMillis() - deathTime > 5000) {
+                game_state = 1;
+                menuMusic.play();
+                leaves.reset();
+                if (nrCarrotsCollected > userData.getInteger("highscore", 0)) {
+                    userData.putInteger("highscore", nrCarrotsCollected);
+                    highscore = "Highscore: " + nrCarrotsCollected;
+                    userData.flush();
+                }
+                carrotBank += nrCarrotsCollected;
+                userData.putInteger("carrotBank", carrotBank);
+                userData.flush();
+                nrCarrotsCollected = 0;
+                rabbitSpeedDelay = 450;
+                level = 0;
+                deathTime = 0;
+                arrowSelected = 0;
+                nrAvailablePowerups = 0;
+                for (int i = 1; i <= nrMaxPowerups; i++) {
+                    if (powerupsCharges[i] > 0)
+                        powerupsCharges[i]--;
+                }
+            }
+        }
 	}
 
 	public void safeTranslate(float deltaX, float deltaY) {
@@ -943,4 +1137,16 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 		camera.update();
 	}
+
+    public boolean isButtonTouched(Sprite button, float x, float y) {
+        return(x >= button.getX() && x <= button.getX() + button.getWidth() && y >= button.getY() && y <= button.getY() + button.getHeight());
+    }
+
+    public void resize(int width, int height) {
+        viewport.update(width, height);
+        menuViewport.update(width, height);
+        hudViewport.update(width, height);
+        menuCamera.position.set(screenWidth/2,screenHeight/2,0);
+        hudCamera.position.set(screenWidth/2,screenHeight/2,0);
+    }
 }
