@@ -37,9 +37,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public int game_state; //1 main menu; 2 new level; 3 in game; 4 powerups menu
 	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, carrot_pic, bomb_pic, armedBomb_pic, playButtonPic, powerupsButtonPic, homeButtonPic;
 	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic, cameraLockedPic, cameraUnlockedPic, rabbitLeftPic, rabbitRightPic, rabbitUpPic, rabbitDownPic;
-    Texture shieldPortraitPic, shieldPic, upgradeButonPic, chargeButtonPic, powerupPic, nextButtonPic, previousButtonPic, magnetPic, magnetPortraitPic;
+    Texture shieldPortraitPic, shieldPic, upgradeButonPic, chargeButtonPic, powerupPic, nextButtonPic, previousButtonPic, magnetPic, magnetPortraitPic, flarePortraitPic;
 	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbitHole, cameraLocked, cameraUnlocked, rabbitLeft, rabbitRight, rabbitUp, rabbitDown;
-    Sprite playButton, powerupsButton, homeButton, shieldPortrait, shield, upgradeButton, chargeButton, nextButton, previousButton, magnet, magnetPortrait;
+    Sprite playButton, powerupsButton, homeButton, shieldPortrait, shield, upgradeButton, chargeButton, nextButton, previousButton, magnet, magnetPortrait, flarePortrait;
 	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb, powerup;
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera, menuCamera, hudCamera;
@@ -54,7 +54,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
 	BitmapFont scoreFont, levelFont, highscoreFont, titleFont, powerupsFont, powerupsSmallFont;
 	ParticleEffect[] stars;
-    ParticleEffect fireworks, leaves, explosion, trap, powerupEffect, shieldEffect;
+    ParticleEffect fireworks, leaves, explosion, trap, powerupEffect, shieldEffect, flare;
 	Preferences userData;
     String highscore;
 	Music menuMusic;
@@ -125,6 +125,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         nextButtonPic = new Texture("nextButton.png");
         magnetPortraitPic = new Texture("magnetPortrait.png");
         magnetPic = new Texture("magnet.png");
+        flarePortraitPic = new Texture("flarePortrait.png");
 		arrowLeftSelected = new Sprite(arrowLeftSelectedPic);
 		arrowRightSelected = new Sprite(arrowRightSelectedPic);
 		arrowDownSelected = new Sprite(arrowDownSelectedPic);
@@ -173,6 +174,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         nextButton = new Sprite(nextButtonPic);
         magnetPortrait = new Sprite(magnetPortraitPic);
         magnet = new Sprite(magnetPic);
+        flarePortrait = new Sprite(flarePortraitPic);
 
         rabbitRightPics = new TextureAtlas(Gdx.files.internal("rabbitRight.pack"));
         rabbitRightAnimation = new Animation(1/60f, rabbitRightPics.getRegions());
@@ -232,7 +234,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         //region user data
         userData = Gdx.app.getPreferences("User Data");
         highscore = "Highscore: " + userData.getInteger("highscore", 0);
-        nrMaxPowerups = 2;
+        nrMaxPowerups = 3;
         powerupsLevels = new int[nrMaxPowerups + 1];
         powerupsCharges = new int[nrMaxPowerups + 1];
         powerupsUpgradePrices = new int[nrMaxPowerups + 1];
@@ -242,9 +244,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         for (i = 1; i <= nrMaxPowerups; i++) {
             powerupsLevels[i] = userData.getInteger("powerupLevel" + i, 0);
             powerupsCharges[i] = userData.getInteger("powerupCharges" + i, 0);
-            powerupsChargePrices[i] = 1;
-            powerupsUpgradePrices[i] = 2;
+            powerupsChargePrices[i] = 50;
+            powerupsUpgradePrices[i] = 300;
         }
+        powerupsChargePrices[2] = 100;
+        powerupsUpgradePrices[2] = 500;
         carrotBank = userData.getInteger("carrotBank", 0);
         //endregion
 
@@ -282,6 +286,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         shieldEffect = new ParticleEffect();
         shieldEffect.load(Gdx.files.internal("shieldEffect.party"), Gdx.files.internal(""));
         shieldEffect.start();
+        flare = new ParticleEffect();
+        flare.load(Gdx.files.internal("flare.party"), Gdx.files.internal(""));
+        flare.start();
         //endregion
 
         //region geometry
@@ -330,6 +337,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         homeButton.setPosition(10, 10);
         shieldPortrait.setPosition(homeButton.getWidth(), homeButton.getHeight() + 220);
         magnetPortrait.setPosition(homeButton.getWidth(), homeButton.getHeight() + 220);
+        flarePortrait.setPosition(homeButton.getWidth(), homeButton.getHeight() + 220);
         upgradeButton.setPosition(screenWidth / 2 - 410, 10);
         chargeButton.setPosition(screenWidth / 2 + 10, 10);
         nextButton.setPosition(screenWidth - nextButton.getWidth() - 10, screenHeight - 200 - nextButton.getHeight());
@@ -357,6 +365,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         trap.update(Gdx.graphics.getDeltaTime());
         powerupEffect.update(Gdx.graphics.getDeltaTime());
         shieldEffect.update(Gdx.graphics.getDeltaTime());
+        flare.update(Gdx.graphics.getDeltaTime());
 
 		if (game_state == 1) {
             menuBatch.setProjectionMatrix(menuCamera.combined);
@@ -508,6 +517,32 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                             powerupEffect.setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
                             powerupEffect.reset();
                             powerupSound.play();
+                            if (randomPowerup == 3) {
+                                for (i = 2; i <= 19; i++) {
+                                    for (j = 2; j <= 19; j++) {
+                                        if (M[i][j] == 10)
+                                            M[i][j] = 0;
+                                    }
+                                }
+                                flare.setPosition(rabbitPos.x + 100, rabbitPos.y + 100);
+                                flare.reset();
+                                if (activePowerups[randomPowerup] >= 2) {
+                                    for (i = 2; i <= 19; i++) {
+                                        for (j = 2; j <= 19; j++) {
+                                            if (M[i][j] == 6)
+                                                M[i][j] = 7;
+                                        }
+                                    }
+                                }
+                                if (activePowerups[randomPowerup] == 3) {
+                                    for (i = 2; i <= 19; i++) {
+                                        for (j = 2; j <= 19; j++) {
+                                            if (M[i][j] == 8)
+                                                M[i][j] = 0;
+                                        }
+                                    }
+                                }
+                            }
                             break;
 						default: break;
 					}
@@ -765,6 +800,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                 magnet.setPosition(rabbitPos.x - 200, rabbitPos.y - 200);
                 magnet.draw(worldBatch);
             }
+            flare.draw(worldBatch);
 
             for (i = 1; i <= nrMaxStars; i++) {
                 stars[i].draw(worldBatch);
@@ -876,6 +912,17 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                         powerupsSmallFont.draw(menuBatch, "Attracts carrots in a small \n\narea around you.", screenWidth / 2 - 100, screenHeight - 350);
                     else
                         powerupsSmallFont.draw(menuBatch, "Attracts carrots in a large \n\narea around you.", screenWidth / 2 - 100, screenHeight - 350);
+                    break;
+                case 3:
+                    powerupsFont.draw(menuBatch, "True Rabbit Sight", screenWidth / 2 - 375, screenHeight - 150);
+                    flarePortrait.draw(menuBatch);
+                    if (powerupsLevels[currentPowerup] == 0 || powerupsLevels[currentPowerup] == 1)
+                        powerupsSmallFont.draw(menuBatch, "Destroys all traps.", screenWidth / 2 - 100, screenHeight - 350);
+                    else if (powerupsLevels[currentPowerup] == 2)
+                        powerupsSmallFont.draw(menuBatch, "Destroys all traps and \n\nreveals all bombs.", screenWidth / 2 - 100, screenHeight - 350);
+                    else
+                        powerupsSmallFont.draw(menuBatch, "Destroys all traps, \n\nreveals all bombs and \n\ndeactivates armed bombs.", screenWidth / 2 - 100, screenHeight - 350);
+                    break;
                 default: break;
             }
             powerupsFont.draw(menuBatch, "Level " + powerupsLevels[currentPowerup], screenWidth / 2 - 200, screenHeight - 250);
@@ -958,6 +1005,8 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         previousButtonPic.dispose();
         magnetPic.dispose();
         magnetPortraitPic.dispose();
+        flarePortraitPic.dispose();
+        flare.dispose();
 	}
 
 	@Override
@@ -1053,15 +1102,15 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
             if (isButtonTouched(upgradeButton, x, y) && powerupsLevels[currentPowerup] < 3 && carrotBank >= powerupsUpgradePrices[currentPowerup]) {
                 carrotBank -= powerupsUpgradePrices[currentPowerup];
                 powerupsLevels[currentPowerup]++;
-                //userData.putInteger("powerupLevel" + currentPowerup, powerupsLevels[currentPowerup]);
-                //userData.flush();
+                userData.putInteger("powerupLevel" + currentPowerup, powerupsLevels[currentPowerup]);
+                userData.flush();
                 buttonSound.play();
             }
             if (isButtonTouched(chargeButton, x, y) && powerupsCharges[currentPowerup] == 0 && powerupsLevels[currentPowerup] > 0 && carrotBank >= powerupsChargePrices[currentPowerup]) {
                 carrotBank -= powerupsChargePrices[currentPowerup];
                 powerupsCharges[currentPowerup] = 5;
-                //userData.putInteger("powerupCharges" + currentPowerup, powerupsCharges[currentPowerup]);
-                //userData.flush();
+                userData.putInteger("powerupCharges" + currentPowerup, powerupsCharges[currentPowerup]);
+                userData.flush();
                 buttonSound.play();
             }
         }
@@ -1267,8 +1316,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
                 arrowSelected = 0;
                 nrAvailablePowerups = 0;
                 for (int i = 1; i <= nrMaxPowerups; i++) {
-                    if (powerupsCharges[i] > 0)
+                    if (powerupsCharges[i] > 0) {
                         powerupsCharges[i]--;
+                        userData.putInteger("powerupCharges" + i, powerupsCharges[i]);
+                        userData.flush();
+                    }
                 }
             }
         }
