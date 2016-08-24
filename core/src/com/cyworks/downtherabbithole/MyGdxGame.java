@@ -37,9 +37,9 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 	public int game_state; //1 main menu; 2 new level; 3 in game; 4 powerups menu
 	Texture map_pic, arrowUpPic, arrowDownPic, arrowLeftPic, arrowRightPic, noArrow_pic, carrot_pic, bomb_pic, armedBomb_pic, playButtonPic, powerupsButtonPic, homeButtonPic;
 	Texture arrowDownSelectedPic, arrowUpSelectedPic, arrowLeftSelectedPic, arrowRightSelectedPic, rabbitHole_pic, cameraLockedPic, cameraUnlockedPic, rabbitLeftPic, rabbitRightPic, rabbitUpPic, rabbitDownPic;
-    Texture shieldPortraitPic, shieldPic, upgradeButonPic, chargeButtonPic, powerupPic, nextButtonPic, previousButtonPic, magnetPic, magnetPortraitPic, flarePortraitPic;
+    Texture shieldPortraitPic, shieldPic, upgradeButonPic, chargeButtonPic, powerupPic, nextButtonPic, previousButtonPic, magnetPic, magnetPortraitPic, flarePortraitPic, backgroundPic;
 	Sprite map, noArrow, arrowDownSelected, arrowUpSelected, arrowLeftSelected, arrowRightSelected, rabbitHole, cameraLocked, cameraUnlocked, rabbitLeft, rabbitRight, rabbitUp, rabbitDown;
-    Sprite playButton, powerupsButton, homeButton, shieldPortrait, shield, upgradeButton, chargeButton, nextButton, previousButton, magnet, magnetPortrait, flarePortrait;
+    Sprite playButton, powerupsButton, homeButton, shieldPortrait, shield, upgradeButton, chargeButton, nextButton, previousButton, magnet, magnetPortrait, flarePortrait, background;
 	Sprite[] arrowUp, arrowDown, arrowLeft, arrowRight, carrot, bomb, armedBomb, powerup;
 	public static final String TAG = "myMessage";
 	OrthographicCamera camera, menuCamera, hudCamera;
@@ -69,6 +69,12 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
     //endregion
 
     //traps: 1 - carrots turn into bombs; 2 - bombs become invisible; 3 - bombs become armed
+
+    private AdsController adsController;
+
+    public MyGdxGame(AdsController adsController){
+        this.adsController = adsController;
+    }
 
 	@Override
 	public void create () {
@@ -126,6 +132,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         magnetPortraitPic = new Texture("magnetPortrait.png");
         magnetPic = new Texture("magnet.png");
         flarePortraitPic = new Texture("flarePortrait.png");
+        backgroundPic = new Texture("background.jpg");
 		arrowLeftSelected = new Sprite(arrowLeftSelectedPic);
 		arrowRightSelected = new Sprite(arrowRightSelectedPic);
 		arrowDownSelected = new Sprite(arrowDownSelectedPic);
@@ -175,6 +182,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         magnetPortrait = new Sprite(magnetPortraitPic);
         magnet = new Sprite(magnetPic);
         flarePortrait = new Sprite(flarePortraitPic);
+        background = new Sprite(backgroundPic);
 
         rabbitRightPics = new TextureAtlas(Gdx.files.internal("rabbitRight.pack"));
         rabbitRightAnimation = new Animation(1/60f, rabbitRightPics.getRegions());
@@ -265,7 +273,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         }
         fireworks = new ParticleEffect();
         fireworks.load(Gdx.files.internal("fireworks.party"), Gdx.files.internal(""));
-        fireworks.setPosition(screenWidth / 2, screenHeight - 100);
+        fireworks.setPosition(screenWidth / 2, screenHeight - 200);
         fireworks.start();
 		leaves = new ParticleEffect();
 		leaves.load(Gdx.files.internal("leaves.party"), Gdx.files.internal(""));
@@ -342,7 +350,11 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         chargeButton.setPosition(screenWidth / 2 + 10, 10);
         nextButton.setPosition(screenWidth - nextButton.getWidth() - 10, screenHeight - 200 - nextButton.getHeight());
         previousButton.setPosition(10, screenHeight - 200 - previousButton.getHeight());
+
+        background.setPosition(0, 0);
         //endregion
+
+        adsController.showBannerAd();
 
 	}
 
@@ -370,6 +382,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 		if (game_state == 1) {
             menuBatch.setProjectionMatrix(menuCamera.combined);
 			menuBatch.begin();
+            background.draw(menuBatch);
             titleFont.draw(menuBatch, "Down the Rabbit Hole", screenWidth / 2 - 800, screenHeight - 150);
             playButton.draw(menuBatch);
             powerupsButton.draw(menuBatch);
@@ -845,7 +858,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 
 			if (levelTextSize > 0) {
 				levelFont.getData().setScale(levelTextSize);
-				levelFont.draw(hudBatch, "Level " + level, screenWidth / 2 - 200, screenHeight - 50);
+				levelFont.draw(hudBatch, "Level " + level, screenWidth / 2 - 200, screenHeight - 150);
 				if (levelTextSize < 1 && levelTextStartTime == 0) {
 					levelTextSize += 0.05;
 				}
@@ -863,7 +876,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
 				}
 			}
 
-			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 200, screenHeight);
+			scoreFont.draw(hudBatch, "" + nrCarrotsCollected, screenWidth - 200, screenHeight - 100);
             fireworks.draw(hudBatch);
 
 			if (isCameraLocked)
@@ -883,9 +896,10 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         else if (game_state == 4) {
             menuBatch.setProjectionMatrix(menuCamera.combined);
             menuBatch.begin();
+            background.draw(menuBatch);
             homeButton.draw(menuBatch);
-            powerupsFont.draw(menuBatch, "" + carrotBank, screenWidth - 450, screenHeight - 30);
-            carrot[1].setPosition(screenWidth - 610, screenHeight - 175);
+            powerupsFont.draw(menuBatch, "" + carrotBank, screenWidth - 400, 145);
+            carrot[1].setPosition(screenWidth - 560, 0);
             carrot[1].draw(menuBatch);
             if (currentPowerup > 1)
                 previousButton.draw(menuBatch);
@@ -1007,6 +1021,7 @@ public class MyGdxGame extends ApplicationAdapter implements GestureListener {
         magnetPortraitPic.dispose();
         flarePortraitPic.dispose();
         flare.dispose();
+        backgroundPic.dispose();
 	}
 
 	@Override

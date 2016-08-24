@@ -16,7 +16,7 @@ android {
     }
     defaultConfig {
         applicationId "com.cyworks.downtherabbithole"
-        minSdkVersion 8
+        minSdkVersion 9
         targetSdkVersion 23
     }
 }
@@ -124,3 +124,4 @@ idea {
         }
     }
 }
+apply plugin: 'com.google.gms.google-services'
